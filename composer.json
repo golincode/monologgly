@@ -2,7 +2,7 @@
     "name": "golin/monologgly",
     "description": "Loggly helpers for php",
     "require": {
-        "monolog/monolog": "^1.18"
+        "monolog/monolog": "1.*"
     },
     "autoload": {
         "psr-4": {
