@@ -1,0 +1,19 @@
+{
+    "name": "golin/monologgly",
+    "description": "Loggly helpers for php",
+    "require": {
+        "monolog/monolog": "^1.18"
+    },
+    "autoload": {
+        "psr-4": {
+            "Golin\\MonoLoggly\\": "src/"
+        }
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Stef Horner",
+            "email": "shorner@golin.com"
+        }
+    ]
+}
