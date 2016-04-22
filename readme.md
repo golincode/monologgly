@@ -1,12 +1,27 @@
 # Loggly Helpers
 
+This extends the basic loggly handler provided by monolog, adding the following information as context:
+- the environment
+- whether the log happened on a request, or CLI call
+- information about the http request (url, method)
+- information about the origin of the log call (file and line, class and method (if relevant))
+- some simplified exception information (if the log comes from a "normal" exception log - ie. logging, or `__toString`-ing the exception)
+
+Note: there is currently a bug with the class and method origin / backtrace information.
+
+### Installation
+
+```bash
+composer require golin/monologgly
+```
+
 ### Setup with Laravel
 
 ##### Config
 
 Add the following to `config/app.php`:
 
-```
+```php
     'loggly-token' => env('LOGGLY_TOKEN'),
 ```
 
@@ -18,7 +33,7 @@ Add the following file, as `LogglyServiceProvider.php`, and put it in your appli
 
 Update the `$name` property with your application's name.
 
-```
+```php
 <?php
 
 namespace App\Providers;
