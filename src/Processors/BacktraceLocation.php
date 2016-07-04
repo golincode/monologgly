@@ -12,11 +12,12 @@ class BacktraceLocation
      *
      * @var string
      */
-    protected $loggerClass;
+    protected $loggerClasses;
 
-    public function __construct($loggerClass = Logger::class)
+    public function __construct(array $loggerClasses = [Logger::class])
     {
-        $this->loggerClass = $loggerClass;
+        $this->loggerClasses = $loggerClasses;
+        $this->loggerClasses[] = static::class;
     }
 
     /**
@@ -52,20 +53,28 @@ class BacktraceLocation
         // a flag to see if we have reached the logger in the backtrace
         $foundLogger = false;
 
+        $prevTrace = null;
+        $foundTrace = null;
+
+        // This loop attempts to find the item in the trace that actually called
+        // the log
         foreach (debug_backtrace() as $index => $trace) {
             // loop through until we reach the logger class
-            if (!$foundLogger && isset($trace['class']) && $trace['class'] === $this->loggerClass) {
+            if (!$foundLogger && isset($trace['class']) && in_array($trace['class'], $this->loggerClasses)) {
                 $foundLogger = true;
             }
 
             // once we've found the logger, keep looping until we get out of the
             // logger class, then escape the loop
-            if ($foundLogger && !(isset($trace['class']) && $trace['class'] === $this->loggerClass)) {
+            if ($foundLogger && !(isset($trace['class']) && in_array($trace['class'], $this->loggerClasses))) {
+                $foundTrace = $trace;
                 break;
             }
+
+            $prevTrace = $trace;
         }
 
-        return $this->parseBacktrace($trace);
+        return $this->parseBacktrace($foundTrace, $prevTrace);
     }
 
     /**
@@ -74,14 +83,14 @@ class BacktraceLocation
      * @param  array  $node
      * @return array
      */
-    protected function parseBacktrace(array $node)
+    protected function parseBacktrace(array $node, array $previous = [])
     {
         $context = [];
 
         // If there is file information, add it!
         $context['file'] = [
-            'file' => isset($node['file']) ? $node['file'] : '',
-            'line' => isset($node['line']) ? $node['line'] : '',
+            'file' => isset($previous['file']) ? $previous['file'] : '',
+            'line' => isset($previous['line']) ? $previous['line'] : '',
         ];
 
         $context['function'] = $function = isset($node['function']) ? $node['function'] : null;
