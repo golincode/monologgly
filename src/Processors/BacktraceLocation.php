@@ -142,7 +142,7 @@ class BacktraceLocation
 
         // Log the types of the arguments
         if ($isRequiring) {
-            $context['arge'] = [];
+            $context['args'] = [];
         } else {
             $context['args'] = $this->parseArguments(
                 isset($node['args']) ? (array)$node['args'] : []
