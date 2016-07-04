@@ -52,9 +52,10 @@ class RequestInformation
     {
         $context['environment'] = $this->environment;
 
+        // if there is no method, then it is not an http call
         $context['http'] = [
             'method' => $this->method ? strtolower($this->method) : null,
-            'url'    => $this->url,
+            'url'    => $this->method ? $this->url : null,
         ];
 
         // nicked from laravel's Application@runningInConsole method
