@@ -2,6 +2,8 @@
 
 namespace Golin\MonoLoggly\Processors;
 
+use Exception;
+
 class ExceptionInformation
 {
     /**
@@ -12,86 +14,53 @@ class ExceptionInformation
      */
     public function __invoke(array $record)
     {
-        $result = null;
-
-        try {
-            $result = $this->parseExceptionMessage($record['message']);
-        } catch (\Exception $e) {
-            // if anything goes wrong, just pretend nothing ever happened. This
-            // is handled by the upcoming is null check
-        }
-
-        if (is_null($result)) {
+        if (! isset($record['context']['exception']) || ! $record['context']['exception'] instanceof Exception) {
             return $record;
         }
 
-        list($record['message'], $context) = $result;
+        $record['context']['exception'] = $this->exceptionInformation($record['context']['exception']);
 
-        return array_merge_recursive($record, compact('context'));
+        return $record;
     }
 
     /**
-     * Parse the exception message into all of its parts
+     * Recursively format exception information
      *
-     * @param  string $original
+     * @param  Exception $e
      * @return array
      */
-    protected function parseExceptionMessage($original)
+    public function exceptionInformation(Exception $e)
     {
-        $results = [];
+        $data = [
+            'message'   => $e->getMessage(),
+            'exception' => get_class($e),
+            'file'      => $e->getFile(),
+            'line'      => $e->getLine(),
+            'trace'     => $this->trace($e),
+        ];
 
-        // First, get the exception class from the message
-        $pattern = '/exception \'([a-zA-Z0-9\\\\]*)\' /';
-        if (preg_match($pattern, $original, $results) !== 1) {
-            return null;
+        if ($previous = $e->getPrevious()) {
+            $data['previous'] = $this->exceptionInformation($previous);
         }
 
-        list(,$class) = $results;
-        $escapedClass = preg_quote($class);
-
-        // Then get the message and location
-        $pattern = "/exception '$escapedClass' (with message '(.*)' )?in (\/.*)\:([0-9]*)\\n/";
-
-        if (preg_match($pattern, $original, $results) !== 1) {
-            return null;
-        }
-
-        list(,,$message, $file, $line) = $results;
-
-        $message = $message ?: '(no message)';
-
-        // Finally, get the stack trace
-        $pattern = "/Stack trace:\n(.*)/s";
-        $trace = preg_match($pattern, $original, $results) === 1 ?
-            $results[1] :
-            null;
-
-        return [$this->composeMessage($class, $message, $file, $line), [
-            'exception' => [
-                'exception' => $class,
-                'file'      => $file,
-                'line'      => $line,
-                'trace'     => $trace,
-            ],
-        ]];
+        return $data;
     }
 
     /**
-     * Compose the new message
+     * Format the stack trace
      *
-     * @param  string $exception
-     * @param  string $message
-     * @param  string $file
-     * @param  string $line
-     * @return string
+     * @param  Exception $e
+     * @return array
      */
-    protected function composeMessage($exception, $message, $file, $line)
+    protected function trace(Exception $e)
     {
-        return sprintf('%s: %s [%s:%s]',
-            $exception,
-            $message,
-            $file,
-            $line
-        );
+        return array_map(function($item) {
+            return [
+                'file' => isset($item['file']) ? $item['file'] : null,
+                'line' => isset($item['line']) ? $item['line'] : null,
+                'class' => isset($item['class']) ? $item['class'] : null,
+                'function' => isset($item['function']) ? $item['function'] : null,
+            ];
+        }, $e->getTrace());
     }
 }
