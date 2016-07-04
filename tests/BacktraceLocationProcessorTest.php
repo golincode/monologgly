@@ -149,4 +149,27 @@ class BacktraceLocationProcessorTest extends PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $actual);
     }
 
+    public function testSkippingNestedWrappedLoggerLocation()
+    {
+        $processor = new BacktraceLocation([MockLogWrapper::class]);
+        $logger = new MockLogger($processor);
+        $wrapper = new MockLogWrapper($logger);
+        $caller = new BacktraceCaller($processor, $wrapper);
+
+        $actual = $caller->bar()['context']['origin'];
+
+        $expected = [
+            'file' => [
+                'file' => __FILE__,
+                'line' => 16, // This should be the calling line inside BacktraceCaller@bar
+            ],
+            'class' => BacktraceCaller::class,
+            'function' => 'bar',
+            'signature' => 'BacktraceCaller@bar',
+            'args' => [],
+        ];
+
+        $this->assertEquals($expected, $actual);
+    }
+
 }
