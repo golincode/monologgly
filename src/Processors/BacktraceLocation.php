@@ -12,12 +12,12 @@ class BacktraceLocation
      *
      * @var string
      */
-    protected $loggerNeedles;
+    protected $classesAndFunctionsToIgnore;
 
-    public function __construct(array $loggerNeedles = [Logger::class])
+    public function __construct(array $classesAndFunctionsToIgnore = [Logger::class])
     {
-        $this->loggerNeedles = $loggerNeedles;
-        $this->loggerNeedles[] = static::class;
+        $this->classesAndFunctionsToIgnore = $classesAndFunctionsToIgnore;
+        $this->classesAndFunctionsToIgnore[] = static::class;
     }
 
     /**
@@ -50,46 +50,47 @@ class BacktraceLocation
      */
     protected function backtraceInfo()
     {
-        // a flag to see if we have reached the logger in the backtrace
-        $foundLogger = false;
+        $backtrace = debug_backtrace();
 
-        $prevTrace = null;
-        $foundTrace = null;
+        $traceNodes = array_filter($backtrace, [$this, 'isNodeANodeWeShouldIgnore']);
 
-        // This loop attempts to find the item in the trace that actually called
-        // the log
-        foreach (debug_backtrace() as $index => $trace) {
-            // loop through until we reach the logger class
-            if (!$foundLogger && $this->classOrFunctionExistsInTraceNode($trace)) {
-                $foundLogger = true;
-            }
+        $nodeIndex = array_search(array_pop($traceNodes), $backtrace);
 
-            // once we've found the logger, keep looping until we get out of the
-            // logger class, then escape the loop
-            if ($foundLogger && !$this->classOrFunctionExistsInTraceNode($trace)) {
-                $foundTrace = $trace;
-                break;
-            }
-
-            $prevTrace = $trace;
+        if ($nodeIndex === false) {
+            // Logically, should never happen, as we're searching from something that we
+            // just got from that array
+            return [
+                'error' => 'Impossible error 1. Cannot find something that is literally there!',
+            ];
         }
 
-        return $this->parseBacktrace($foundTrace, $prevTrace);
+        if (!isset($backtrace[$nodeIndex + 1])) {
+            // Again, logically shouldn't happen
+            return [
+                'error' => 'Impossible error 2. The found node is the absolute root of the stack.',
+            ];
+        }
+
+        return $this->parseBacktrace(
+            $backtrace[$nodeIndex + 1],
+            $backtrace[$nodeIndex]
+        );
     }
 
+
     /**
-     * Check if the given node matches any of the loggerNeedles. It counts as a
+     * Check if the given node matches any of the classesAndFunctionsToIgnore. It counts as a
      * match if it has a class that matches one of them, or doesn't have a
      * class, and its function matches one of them
      *
      * @param  array  $node
      * @return bool
      */
-    protected function classOrFunctionExistsInTraceNode(array $node)
+    protected function isNodeANodeWeShouldIgnore(array $node)
     {
         $found = false;
 
-        foreach ($this->loggerNeedles as $needle) {
+        foreach ($this->classesAndFunctionsToIgnore as $needle) {
             // if needle is a class name
             if (class_exists($needle)) {
                 // and the node's class is that class
