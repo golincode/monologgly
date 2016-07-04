@@ -12,11 +12,12 @@ class BacktraceLocation
      *
      * @var string
      */
-    protected $loggerClass;
+    protected $classesAndFunctionsToIgnore;
 
-    public function __construct($loggerClass = Logger::class)
+    public function __construct(array $classesAndFunctionsToIgnore = [Logger::class])
     {
-        $this->loggerClass = $loggerClass;
+        $this->classesAndFunctionsToIgnore = $classesAndFunctionsToIgnore;
+        $this->classesAndFunctionsToIgnore[] = static::class;
     }
 
     /**
@@ -49,23 +50,71 @@ class BacktraceLocation
      */
     protected function backtraceInfo()
     {
-        // a flag to see if we have reached the logger in the backtrace
-        $foundLogger = false;
+        $backtrace = debug_backtrace();
 
-        foreach (debug_backtrace() as $index => $trace) {
-            // loop through until we reach the logger class
-            if (!$foundLogger && isset($trace['class']) && $trace['class'] === $this->loggerClass) {
-                $foundLogger = true;
+        $traceNodes = array_filter($backtrace, [$this, 'isNodeANodeWeShouldIgnore']);
+
+        $nodeIndex = array_search(array_pop($traceNodes), $backtrace);
+
+        if ($nodeIndex === false) {
+            // Logically, should never happen, as we're searching from something that we
+            // just got from that array
+            return [
+                'error' => 'Impossible error 1. Cannot find something that is literally there!',
+            ];
+        }
+
+        if (!isset($backtrace[$nodeIndex + 1])) {
+            // Again, logically shouldn't happen
+            return [
+                'error' => sprintf(
+                    'Impossible error 2. The found node is the absolute root of the stack. Tried to access index [%s] of [%s].',
+                    $nodeIndex + 1,
+                    count($backtrace)
+                ),
+            ];
+        }
+
+        return $this->parseBacktrace(
+            $backtrace[$nodeIndex + 1],
+            $backtrace[$nodeIndex]
+        );
+    }
+
+
+    /**
+     * Check if the given node matches any of the classesAndFunctionsToIgnore. It counts as a
+     * match if it has a class that matches one of them, or doesn't have a
+     * class, and its function matches one of them
+     *
+     * @param  array  $node
+     * @return bool
+     */
+    protected function isNodeANodeWeShouldIgnore(array $node)
+    {
+        $found = false;
+
+        foreach ($this->classesAndFunctionsToIgnore as $needle) {
+            // if needle is a class name
+            if (class_exists($needle)) {
+                // and the node's class is that class
+                if (isset($node['class']) && $node['class'] === $needle) {
+                    // then it exists
+                    $found = true;
+                }
             }
 
-            // once we've found the logger, keep looping until we get out of the
-            // logger class, then escape the loop
-            if ($foundLogger && !(isset($trace['class']) && $trace['class'] === $this->loggerClass)) {
-                break;
+            // if needle is a function
+            if (function_exists($needle)) {
+                // and the node has no class (ie. is a function), and its function is the needle
+                if (!isset($node['class']) && isset($node['function']) && $node['function'] === $needle) {
+                    // then it exists
+                    $found = true;
+                }
             }
         }
 
-        return $this->parseBacktrace($trace);
+        return $found;
     }
 
     /**
@@ -74,14 +123,14 @@ class BacktraceLocation
      * @param  array  $node
      * @return array
      */
-    protected function parseBacktrace(array $node)
+    protected function parseBacktrace(array $node, array $previous = [])
     {
         $context = [];
 
         // If there is file information, add it!
         $context['file'] = [
-            'file' => isset($node['file']) ? $node['file'] : '',
-            'line' => isset($node['line']) ? $node['line'] : '',
+            'file' => isset($previous['file']) ? $previous['file'] : '',
+            'line' => isset($previous['line']) ? $previous['line'] : '',
         ];
 
         $context['function'] = $function = isset($node['function']) ? $node['function'] : null;
@@ -97,7 +146,7 @@ class BacktraceLocation
 
         // Log the types of the arguments
         if ($isRequiring) {
-            $context['arge'] = [];
+            $context['args'] = [];
         } else {
             $context['args'] = $this->parseArguments(
                 isset($node['args']) ? (array)$node['args'] : []

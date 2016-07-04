@@ -6,6 +6,8 @@ use Golin\MonoLoggly\Processors\BacktraceLocation;
 use Golin\MonoLoggly\Processors\ExceptionInformation;
 use Golin\MonoLoggly\Processors\RequestInformation;
 use Illuminate\Log\Writer;
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\Facades\Log as LogFacade;
 use Illuminate\Support\ServiceProvider;
 use Monolog\Handler\LogglyHandler;
 use Monolog\Logger;
@@ -82,7 +84,13 @@ class LogglyServiceProvider extends ServiceProvider {
 
         $handler->pushProcessor(new ExceptionInformation);
 
-        $handler->pushProcessor(new BacktraceLocation(Writer::class));
+        $handler->pushProcessor(new BacktraceLocation([
+            Logger::class,
+            Writer::class,
+            Facade::class, // the actual method the Log Facade uses is defined in here.
+            LogFacade::class,
+            'logger',
+        ]));
 
         $handler->pushProcessor(new RequestInformation(
             $this->app['env'],

@@ -15,6 +15,16 @@ Note: there is currently a bug with the class and method origin / backtrace info
 composer require golin/monologgly
 ```
 
+### Exceptions
+
+To log exception information, simply add the exception to the context:
+
+```php
+$logger->debug('Oh No!', ['exception' => $e]);
+```
+
+The exception object will be removed before final logging, and replaced with an array interpretation of it. It will still be available to all other processors added (as long as they are added before the exception information processor (which they will be using the provided service provider)).
+
 ### Setup with Laravel
 
 ##### Config
