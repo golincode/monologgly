@@ -67,7 +67,11 @@ class BacktraceLocation
         if (!isset($backtrace[$nodeIndex + 1])) {
             // Again, logically shouldn't happen
             return [
-                'error' => 'Impossible error 2. The found node is the absolute root of the stack.',
+                'error' => sprintf(
+                    'Impossible error 2. The found node is the absolute root of the stack. Tried to access index [%s] of [%s].',
+                    $nodeIndex + 1,
+                    count($backtrace)
+                ),
             ];
         }
 
