@@ -12,12 +12,12 @@ class BacktraceLocation
      *
      * @var string
      */
-    protected $loggerClasses;
+    protected $loggerNeedles;
 
-    public function __construct(array $loggerClasses = [Logger::class])
+    public function __construct(array $loggerNeedles = [Logger::class])
     {
-        $this->loggerClasses = $loggerClasses;
-        $this->loggerClasses[] = static::class;
+        $this->loggerNeedles = $loggerNeedles;
+        $this->loggerNeedles[] = static::class;
     }
 
     /**
@@ -60,13 +60,13 @@ class BacktraceLocation
         // the log
         foreach (debug_backtrace() as $index => $trace) {
             // loop through until we reach the logger class
-            if (!$foundLogger && isset($trace['class']) && in_array($trace['class'], $this->loggerClasses)) {
+            if (!$foundLogger && $this->classOrFunctionExistsInTraceNode($trace)) {
                 $foundLogger = true;
             }
 
             // once we've found the logger, keep looping until we get out of the
             // logger class, then escape the loop
-            if ($foundLogger && !(isset($trace['class']) && in_array($trace['class'], $this->loggerClasses))) {
+            if ($foundLogger && !$this->classOrFunctionExistsInTraceNode($trace)) {
                 $foundTrace = $trace;
                 break;
             }
@@ -75,6 +75,41 @@ class BacktraceLocation
         }
 
         return $this->parseBacktrace($foundTrace, $prevTrace);
+    }
+
+    /**
+     * Check if the given node matches any of the loggerNeedles. It counts as a
+     * match if it has a class that matches one of them, or doesn't have a
+     * class, and its function matches one of them
+     *
+     * @param  array  $node
+     * @return bool
+     */
+    protected function classOrFunctionExistsInTraceNode(array $node)
+    {
+        $found = false;
+
+        foreach ($this->loggerNeedles as $needle) {
+            // if needle is a class name
+            if (class_exists($needle)) {
+                // and the node's class is that class
+                if (isset($node['class']) && $node['class'] === $needle) {
+                    // then it exists
+                    $found = true;
+                }
+            }
+
+            // if needle is a function
+            if (function_exists($needle)) {
+                // and the node has no class (ie. is a function), and its function is the needle
+                if (!isset($node['class']) && isset($node['function']) && $node['function'] === $needle) {
+                    // then it exists
+                    $found = true;
+                }
+            }
+        }
+
+        return $found;
     }
 
     /**
