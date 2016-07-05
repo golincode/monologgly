@@ -95,7 +95,7 @@ class LogglyServiceProvider extends ServiceProvider {
         $handler->pushProcessor(new RequestInformation(
             $this->app['env'],
             $this->app['request']->method(),
-            $this->app['request']->fullUrl()
+            $this->app['request']->url()
         ));
 
         foreach ($this->processors() as $processor) {
