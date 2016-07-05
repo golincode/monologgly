@@ -23,12 +23,8 @@ class ExceptionInformationProcessorTest extends PHPUnit_Framework_TestCase
         $this->assertEquals($expected['exception'], $actual['exception']);
         $this->assertEquals($expected['file'], $actual['file']);
         $this->assertEquals($expected['line'], $actual['line']);
-        $this->assertEquals([
-            'file' => null,
-            'line' => null,
-            'class' => __CLASS__,
-            'function' => 'testBasicException',
-        ], $actual['trace'][0]);
+
+        $this->assertTrue(is_string($actual['trace']));
     }
 
     public function testRecursiveException()
