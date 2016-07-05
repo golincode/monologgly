@@ -36,7 +36,7 @@ class ExceptionInformation
             'exception' => get_class($e),
             'file'      => $e->getFile(),
             'line'      => $e->getLine(),
-            'trace'     => $this->trace($e),
+            'trace'     => json_encode($this->trace($e), JSON_PRETTY_PRINT),
         ];
 
         if ($previous = $e->getPrevious()) {
